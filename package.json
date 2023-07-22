@@ -23,7 +23,7 @@
     "typescript": "^5.1.6"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "frontend-dev": "react-scripts start",
     "server-dev": "concurrently \"npx tsc -p server --watch\" \"nodemon -q server/build/server.js\"",
     "build": "npx tsc -p server && react-scripts build",
     "test": "react-scripts test",

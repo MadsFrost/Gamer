@@ -4,7 +4,7 @@ npm run server-dev
 ```
 # Start frontend for development
 ```sh
-npm run start
+npm run frontend-dev
 ```
 
 # For installation:
