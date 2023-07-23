@@ -1,51 +1,87 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import './App.css';
 import { io, Socket } from 'socket.io-client';
 import { ClientToServerEvents, ServerToClientEvents } from "../types/events";
+import PlayerComponent from './components/Player';
+import Username from './components/Username';
+import { Player } from 'types/player';
+import useArrowKeys from './hooks/arrowKeyEvents';
+import { Vector } from 'vecti';
 
-export type MitDiv = HTMLDivElement;
 
-
-const socket: Socket<ServerToClientEvents, ClientToServerEvents> 
+const socket: Socket<ServerToClientEvents, ClientToServerEvents>
   = io('localhost:3001');
 
-export type Coord = [number, number];
 
 function App() {
+
   const [isConnected, setIsConnected] = useState(socket.connected);
-  const [lastMessage, setLastMessage] = useState<string | null>(null);
+
+  const [playerDict, setPlayerDict] = useState<{ [key: string]: Player }>({});
+
+  const input = useArrowKeys();
 
   useEffect(() => {
-    socket.on('connect', () => {
-      setIsConnected(true);
-    });
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-    });
-    socket.on('message', (msg) => {
-      setLastMessage(msg);
-    });
+    if (playerDict[socket.id] === undefined) {
+      return;
+    }
 
-    return () => {
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('message');
-    };
-  }, []);
+    
+    const nonZero = input.x !== 0 ? input.x : input.y;
+    console.log({"i": input, "o": nonZero})
+    // if (nonZero === 0) {
+    //   return;
+    // }
+  
+    const oldpos = playerDict[socket.id]!.position;
+    const newpos : Vector = new Vector(oldpos.x, oldpos.y).add(input).multiply(5);
+    playerDict[socket.id]!.position = newpos;
+    socket.emit('move', input);
+  
+  }, [input, playerDict]);
 
-  const sendMessage = () => {
-    console.log("Sending message")
-    socket.emit('hello');
+  function player_update(socket_id: string, player: Player) {
+    const d = { ...playerDict };
+    d[socket_id] = player;
+    setPlayerDict(d);
   }
 
+  function player_delete(socket_id: string) {
+    const d = { ...playerDict };
+    delete d[socket_id];
+    setPlayerDict(d);
+  }
+
+  socket.on('connect', () => {
+    setIsConnected(true);
+  });
+
+  socket.on('disconnect', () => {
+    setIsConnected(false);
+  });
+
+  socket.on('player_update', (socket_id: string, player: Player) => {
+    player_update(socket_id, player);
+  });
+
+  socket.on('player_leave', (socket_id: string) => {
+    player_delete(socket_id);
+  });
+
+  useEffect(() => {
+  }, [playerDict]);
+
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <p>Connected: { '' + isConnected }</p>
-        <p>Last message: { lastMessage || '-' }</p>
-        <button onClick={ sendMessage }>Say hello!</button>
-      </header>
-    </div>
+    <div>
+      <p>Connected: {'' + isConnected}</p>
+      <p>Socket ID: {socket.id}</p>
+      <Username socket={socket} />
+      <p>{JSON.stringify(playerDict, null, 4)}</p>
+      {Object.keys(playerDict).map((socket_id) => {
+        return <PlayerComponent player={playerDict[socket_id]!} />
+      })}
+    </div >
   );
 }
 
